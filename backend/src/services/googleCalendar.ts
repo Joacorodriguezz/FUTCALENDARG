@@ -23,7 +23,7 @@ export async function addPartidosToCalendar(
 
   // Pre-compute time windows for all partidos
   const windows = partidos.map((p) => {
-    const startDate = new Date(`${p.fecha}T${p.hora}:00`);
+    const startDate = new Date(`${p.fecha}T${p.hora}:00-03:00`);
     const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
     return { startDate, endDate };
   });
