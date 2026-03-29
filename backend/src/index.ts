@@ -1,9 +1,15 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+
+dotenv.config({
+  path: path.resolve(__dirname, '../.env'),
+  override: true,
+});
 
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
 import calendarRoutes from './routes/calendar';
 import teamsRoutes from './routes/teams';
@@ -39,6 +45,26 @@ app.use(session({
     sameSite: isProd ? 'none' : 'lax',
   },
 }));
+
+// Rate limiters — protect Google Calendar API quota and prevent abuse
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes, intentá de nuevo en 15 minutos' },
+});
+
+const calendarLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes, intentá de nuevo en 15 minutos' },
+});
+
+app.use('/api/auth/google', authLimiter);
+app.use('/api/calendar/add', calendarLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);

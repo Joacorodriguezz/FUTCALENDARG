@@ -85,5 +85,5 @@ export async function addToCalendar(partidos: Partido[], force = false): Promise
 }
 
 export function redirectToGoogleLogin() {
-  window.location.href = '/api/auth/google';
+  window.location.href = `${BASE}/auth/google`;
 }

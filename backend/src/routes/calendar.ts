@@ -4,6 +4,8 @@ import { Partido } from '../types/partido';
 
 const router = Router();
 
+const MAX_PARTIDOS = 15;
+
 function requireAuth(req: Request, res: Response, next: () => void) {
   if (!req.session.access_token) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -17,6 +19,10 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
 
   if (!Array.isArray(partidos) || partidos.length === 0) {
     return res.status(400).json({ error: 'partidos array required' });
+  }
+
+  if (partidos.length > MAX_PARTIDOS) {
+    return res.status(400).json({ error: `Máximo ${MAX_PARTIDOS} partidos por solicitud` });
   }
 
   try {

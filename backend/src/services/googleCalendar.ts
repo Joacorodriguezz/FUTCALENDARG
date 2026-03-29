@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google, calendar_v3 } from 'googleapis';
 import { Partido } from '../types/partido';
 
 export interface ConflictInfo {
@@ -21,74 +21,88 @@ export async function addPartidosToCalendar(
   const duplicates: string[] = [];
   const conflicts: ConflictInfo[] = [];
 
-  for (const partido of partidos) {
+  // Pre-compute time windows for all partidos
+  const windows = partidos.map((p) => {
+    const startDate = new Date(`${p.fecha}T${p.hora}:00`);
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+    return { startDate, endDate };
+  });
+
+  // Single events.list call covering the entire batch — reduces N API calls to 1
+  let batchItems: calendar_v3.Schema$Event[] = [];
+  try {
+    const batchMin = new Date(Math.min(...windows.map((w) => w.startDate.getTime())));
+    const batchMax = new Date(Math.max(...windows.map((w) => w.endDate.getTime())));
+
+    const existing = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: batchMin.toISOString(),
+      timeMax: batchMax.toISOString(),
+      singleEvents: true,
+      maxResults: 2500,
+    });
+    batchItems = existing.data.items ?? [];
+  } catch (listErr) {
+    // List call failed — skip duplicate/conflict checks and proceed with inserts
+    console.warn('events.list batch call failed, skipping checks:', listErr instanceof Error ? listErr.message : listErr);
+  }
+
+  for (let i = 0; i < partidos.length; i++) {
+    const partido = partidos[i];
+    const { startDate, endDate } = windows[i];
+    const title = `${partido.equipo_local} vs ${partido.equipo_visitante}`;
+
     try {
-      const startISO = `${partido.fecha}T${partido.hora}:00`;
-      const startDate = new Date(startISO);
-      const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-
-      const title = `${partido.equipo_local} vs ${partido.equipo_visitante}`;
-
-      // --- Duplicate & conflict checks (best-effort: if the list call fails, skip checks and insert) ---
       let skipInsert = false;
 
-      try {
-        const existing = await calendar.events.list({
-          calendarId: 'primary',
-          timeMin: startDate.toISOString(),
-          timeMax: endDate.toISOString(),
-          singleEvents: true,
-        });
+      // Filter batch items to those overlapping this partido's 2-hour window
+      const items = batchItems.filter((e) => {
+        const eStart = e.start?.dateTime ? new Date(e.start.dateTime).getTime() : 0;
+        const eEnd = e.end?.dateTime ? new Date(e.end.dateTime).getTime() : Infinity;
+        return eStart < endDate.getTime() && eEnd > startDate.getTime();
+      });
 
-        const items = existing.data.items ?? [];
+      // 1. Duplicate check — always applies, even when force=true
+      const isDuplicate = items.some(
+        (e) => e.summary?.toLowerCase() === title.toLowerCase()
+      );
+      if (isDuplicate) {
+        duplicates.push(title);
+        skipInsert = true;
+      }
 
-        // 1. Duplicate check — always applies, even when force=true
-        const isDuplicate = items.some(
-          (e) => e.summary?.toLowerCase() === title.toLowerCase()
+      // 2. Conflict check — only when force=false and no duplicate
+      if (!skipInsert && !force) {
+        const otherEvents = items.filter(
+          (e) => e.summary?.toLowerCase() !== title.toLowerCase()
         );
-        if (isDuplicate) {
-          duplicates.push(title);
+        if (otherEvents.length > 0) {
+          conflicts.push({
+            partido,
+            conflictingEvents: otherEvents.map((e) => e.summary ?? 'Evento sin titulo'),
+          });
           skipInsert = true;
         }
-
-        // 2. Conflict check — only when force=false and no duplicate
-        if (!skipInsert && !force) {
-          const otherEvents = items.filter(
-            (e) => e.summary?.toLowerCase() !== title.toLowerCase()
-          );
-          if (otherEvents.length > 0) {
-            conflicts.push({
-              partido,
-              conflictingEvents: otherEvents.map((e) => e.summary ?? 'Evento sin titulo'),
-            });
-            skipInsert = true;
-          }
-        }
-      } catch (listErr) {
-        // List call failed — log and continue with insert (checks are best-effort)
-        console.warn('events.list failed for', title, ':', listErr instanceof Error ? listErr.message : listErr);
       }
 
       if (skipInsert) continue;
 
       // 3. Insert
-      const event = {
-        summary: title,
-        description: partido.competicion,
-        location: partido.estadio,
-        start: {
-          dateTime: startDate.toISOString(),
-          timeZone: 'America/Argentina/Buenos_Aires',
-        },
-        end: {
-          dateTime: endDate.toISOString(),
-          timeZone: 'America/Argentina/Buenos_Aires',
-        },
-      };
-
       await calendar.events.insert({
         calendarId: 'primary',
-        requestBody: event,
+        requestBody: {
+          summary: title,
+          description: partido.competicion,
+          location: partido.estadio,
+          start: {
+            dateTime: startDate.toISOString(),
+            timeZone: 'America/Argentina/Buenos_Aires',
+          },
+          end: {
+            dateTime: endDate.toISOString(),
+            timeZone: 'America/Argentina/Buenos_Aires',
+          },
+        },
       });
 
       added++;
