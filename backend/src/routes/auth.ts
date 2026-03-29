@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { google } from 'googleapis';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -12,7 +13,10 @@ function getOAuthClient() {
 }
 
 // GET /api/auth/google
-router.get('/google', (_req: Request, res: Response) => {
+router.get('/google', (req: Request, res: Response) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.oauth_state = state;
+
   const oauth2Client = getOAuthClient();
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -22,18 +26,25 @@ router.get('/google', (_req: Request, res: Response) => {
       'profile',
       'https://www.googleapis.com/auth/calendar.events',
     ],
+    state,
   });
   res.redirect(authUrl);
 });
 
 // GET /api/auth/google/callback
 router.get('/google/callback', async (req: Request, res: Response) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
   if (!code || typeof code !== 'string') {
     return res.redirect(`${FRONTEND_URL}?auth=error`);
   }
+
+  // CSRF check
+  if (!state || state !== req.session.oauth_state) {
+    return res.redirect(`${FRONTEND_URL}?auth=error`);
+  }
+  req.session.oauth_state = undefined;
 
   try {
     const oauth2Client = getOAuthClient();
