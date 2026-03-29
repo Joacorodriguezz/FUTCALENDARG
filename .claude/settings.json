@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$TOOL_INPUT\" | node -e \"const i=require('fs').readFileSync('/dev/stdin','utf8'); const p=JSON.parse(i).file_path||''; if(p.match(/\\.env$/)){console.error('Blocked: reading .env files is not allowed.');process.exit(2);}\" 2>&1 || exit 2"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[CLAUDE.md] Si este cambio afecta arquitectura, rutas, tipos de datos, variables de entorno o el cron, actualizá CLAUDE.md.\""
+          }
+        ]
+      }
+    ]
+  }
+}

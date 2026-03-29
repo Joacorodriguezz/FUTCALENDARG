@@ -1,0 +1,35 @@
+import { Router, Request, Response } from 'express';
+import { addPartidosToCalendar } from '../services/googleCalendar';
+import { Partido } from '../types/partido';
+
+const router = Router();
+
+function requireAuth(req: Request, res: Response, next: () => void) {
+  if (!req.session.access_token) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  next();
+}
+
+// POST /api/calendar/add
+router.post('/add', requireAuth, async (req: Request, res: Response) => {
+  const { partidos, force = false } = req.body as { partidos: Partido[]; force?: boolean };
+
+  if (!Array.isArray(partidos) || partidos.length === 0) {
+    return res.status(400).json({ error: 'partidos array required' });
+  }
+
+  try {
+    const result = await addPartidosToCalendar(
+      req.session.access_token as string,
+      partidos,
+      force
+    );
+    return res.json(result);
+  } catch (err) {
+    console.error('Calendar error:', err);
+    return res.status(500).json({ error: 'Error adding to calendar' });
+  }
+});
+
+export default router;

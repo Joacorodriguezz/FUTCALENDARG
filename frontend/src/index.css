@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #0a150a;
+  color: #f0f0f0;
+  min-height: 100vh;
+  font-family: 'Oswald', 'Arial', sans-serif;
+}
+
+/* Hide scrollbar for team bar but keep scroll */
+.team-bar::-webkit-scrollbar {
+  height: 4px;
+}
+.team-bar::-webkit-scrollbar-track {
+  background: #122012;
+}
+.team-bar::-webkit-scrollbar-thumb {
+  background: #2e5e2e;
+  border: 1px solid #ffd700;
+}
+
+/* Retro scanline overlay on header */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+}

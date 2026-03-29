@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "responsive-web-design": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "computedHash": "aadc6611d00a63ebe47e1d86b24cc67ffcd0a609e9972d3d7dcda4df7f095a1d"
+    }
+  }
+}
