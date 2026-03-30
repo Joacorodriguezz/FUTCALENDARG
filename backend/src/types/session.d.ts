@@ -5,5 +5,6 @@ declare module 'express-session' {
     access_token?: string;
     email?: string;
     oauth_state?: string;
+    code_verifier?: string;
   }
 }

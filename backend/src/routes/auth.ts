@@ -14,8 +14,15 @@ function getOAuthClient() {
 
 // GET /api/auth/google
 router.get('/google', (req: Request, res: Response) => {
-  const state = crypto.randomBytes(16).toString('hex');
-  req.session.oauth_state = state;
+  const state        = crypto.randomBytes(16).toString('hex');
+  const codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = crypto
+    .createHash('sha256')
+    .update(codeVerifier)
+    .digest('base64url');
+
+  req.session.oauth_state    = state;
+  req.session.code_verifier  = codeVerifier;
 
   const oauth2Client = getOAuthClient();
   const authUrl = oauth2Client.generateAuthUrl({
@@ -27,7 +34,10 @@ router.get('/google', (req: Request, res: Response) => {
       'https://www.googleapis.com/auth/calendar.events',
     ],
     state,
-  });
+    include_granted_scopes: true,
+    code_challenge:        codeChallenge,
+    code_challenge_method: 'S256',
+  } as any);
   res.redirect(authUrl);
 });
 
@@ -48,7 +58,11 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 
   try {
     const oauth2Client = getOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      codeVerifier: req.session.code_verifier,
+    });
+    req.session.code_verifier = undefined;
     oauth2Client.setCredentials(tokens);
 
     // Get user email
