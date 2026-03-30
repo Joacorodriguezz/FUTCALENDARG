@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getLogoByName, LP_TEAM_NAMES } from './data/equipos';
 import {
   ConflictInfo,
@@ -289,17 +290,19 @@ const [loadingTeams, setLoadingTeams] = useState(false);
         />
       )}
 
-      {/* Toast */}
-      {toast && (
+      {/* Toast — portal al body para evitar bugs de position:fixed en iOS Safari */}
+      {toast && createPortal(
         <div
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 w-[90vw] max-w-sm px-5 py-3 font-display text-base tracking-widest shadow-lg border-2 uppercase text-center ${
+          style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+          className={`fixed left-1/2 -translate-x-1/2 w-[90vw] max-w-sm px-5 py-3 font-display text-base tracking-widest shadow-lg border-2 uppercase text-center z-[9999] ${
             toast.type === 'success'
               ? 'bg-retro-green-light border-retro-gold text-retro-white'
               : 'bg-retro-red border-retro-gold text-retro-white'
           }`}
         >
           {toast.message}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
