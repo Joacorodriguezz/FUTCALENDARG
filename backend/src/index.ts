@@ -1,10 +1,6 @@
-import dotenv from 'dotenv';
-import path from 'path';
+import { loadBackendEnv } from './lib/loadEnv';
 
-dotenv.config({
-  path: path.resolve(__dirname, '../.env'),
-  override: true,
-});
+loadBackendEnv();
 
 import express from 'express';
 import cors from 'cors';
@@ -15,6 +11,7 @@ import calendarRoutes from './routes/calendar';
 import teamsRoutes from './routes/teams';
 import fixturesRoutes from './routes/fixtures';
 import leaguesRoutes from './routes/leagues';
+import riscRoutes, { revokedEmails, revokedSubs } from './routes/risc';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -65,6 +62,21 @@ const calendarLimiter = rateLimit({
 
 app.use('/api/auth/google', authLimiter);
 app.use('/api/calendar/add', calendarLimiter);
+
+// RISC endpoint — Google sends raw JWT as text/plain
+app.use('/api/auth/risc', express.text({ type: '*/*' }), riscRoutes);
+
+// Blocklist middleware: invalidate sessions for revoked accounts
+app.use((req, res, next) => {
+  const sess = req.session as any;
+  if (
+    sess.email && revokedEmails.has(sess.email.toLowerCase()) ||
+    sess.google_sub && revokedSubs.has(sess.google_sub)
+  ) {
+    return req.session.destroy(() => res.status(401).json({ error: 'Session revoked' }));
+  }
+  next();
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);

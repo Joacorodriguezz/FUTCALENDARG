@@ -6,5 +6,6 @@ declare module 'express-session' {
     email?: string;
     oauth_state?: string;
     code_verifier?: string;
+    google_sub?: string;
   }
 }

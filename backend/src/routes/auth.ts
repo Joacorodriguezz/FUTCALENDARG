@@ -70,7 +70,8 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     const { data } = await oauth2.userinfo.get();
 
     req.session.access_token = tokens.access_token ?? undefined;
-    req.session.email = data.email ?? undefined;
+    req.session.email      = data.email ?? undefined;
+    req.session.google_sub = data.id   ?? undefined;
 
     return res.redirect(`${FRONTEND_URL}?auth=success`);
   } catch (err) {
