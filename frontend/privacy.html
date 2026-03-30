@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidad – Partidos al Calendar</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #cbd5e1;
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { color: #f1f5f9; font-size: 1.8rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 2.5rem; }
+    h2 { color: #e2e8f0; font-size: 1.1rem; margin: 2rem 0 0.5rem; }
+    p, li { font-size: 0.95rem; color: #94a3b8; }
+    ul { padding-left: 1.5rem; }
+    li { margin-bottom: 0.4rem; }
+    a { color: #38bdf8; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .back { display: inline-block; margin-top: 3rem; color: #38bdf8; font-size: 0.9rem; }
+    hr { border: none; border-top: 1px solid #1e293b; margin: 2rem 0; }
+    .highlight {
+      background: #1e293b;
+      border-left: 3px solid #38bdf8;
+      padding: 0.75rem 1rem;
+      border-radius: 0 4px 4px 0;
+      margin: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Política de Privacidad</h1>
+    <p class="subtitle">Última actualización: marzo 2025 — Partidos al Calendar</p>
+
+    <div class="highlight">
+      <p><strong>Resumen:</strong> No almacenamos información personal tuya más allá de lo estrictamente necesario para que el Servicio funcione. No vendemos ni compartimos tus datos con terceros.</p>
+    </div>
+
+    <h2>1. Datos que recopilamos</h2>
+    <p>Al autenticarte con Google, recopilamos únicamente:</p>
+    <ul>
+      <li><strong>Dirección de email de Google</strong> — para identificar tu sesión.</li>
+      <li><strong>Token de acceso de Google Calendar</strong> — para crear eventos en tu nombre. Este token es temporal y se almacena solo en la sesión del servidor (en memoria), no en base de datos.</li>
+    </ul>
+    <p>No recopilamos nombre, foto de perfil, contactos, ni ningún otro dato de tu cuenta de Google.</p>
+
+    <h2>2. Cómo usamos los datos</h2>
+    <ul>
+      <li>El email se usa exclusivamente para mantener la sesión activa durante tu visita.</li>
+      <li>El token de acceso se usa exclusivamente para crear los eventos de partidos que vos seleccionás.</li>
+      <li>No realizamos análisis de comportamiento ni seguimiento de uso.</li>
+    </ul>
+
+    <h2>3. Almacenamiento y retención</h2>
+    <p>Los tokens de acceso se almacenan en la sesión del servidor y se eliminan automáticamente cuando la sesión expira o cerrás sesión. <strong>No guardamos tokens ni emails en ninguna base de datos persistente.</strong></p>
+
+    <h2>4. Permisos de Google que solicitamos</h2>
+    <p>El Servicio solicita únicamente el permiso <code>https://www.googleapis.com/auth/calendar.events</code>, que permite crear y leer eventos en tu Google Calendar. No solicitamos acceso a Gmail, Drive, Contactos ni ningún otro servicio de Google.</p>
+
+    <h2>5. Terceros</h2>
+    <p>El Servicio utiliza los siguientes servicios de terceros:</p>
+    <ul>
+      <li><strong>Google OAuth 2.0 / Google Calendar API</strong> — para autenticación y creación de eventos. Sujeto a la <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidad de Google</a>.</li>
+      <li><strong>Supabase</strong> — base de datos que almacena únicamente información pública de equipos y fixtures (sin datos personales). Sujeto a la <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Política de Privacidad de Supabase</a>.</li>
+    </ul>
+    <p>No compartimos tus datos con ningún otro tercero.</p>
+
+    <h2>6. Cookies y almacenamiento local</h2>
+    <p>El Servicio utiliza:</p>
+    <ul>
+      <li><strong>Cookie de sesión</strong> — necesaria para mantener tu sesión autenticada. Se elimina al cerrar sesión o cuando expira.</li>
+      <li><strong>sessionStorage del navegador</strong> — para recuperar selecciones pendientes tras el redirect de OAuth. Se elimina al cerrar la pestaña.</li>
+    </ul>
+    <p>No usamos cookies de tracking ni publicidad.</p>
+
+    <h2>7. Tus derechos</h2>
+    <p>Podés revocar el acceso del Servicio a tu cuenta de Google en cualquier momento desde <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>. Al hacerlo, el Servicio perderá acceso a tu calendario inmediatamente.</p>
+
+    <h2>8. Seguridad</h2>
+    <p>Implementamos medidas razonables para proteger la información. Sin embargo, ningún sistema es completamente seguro. El uso del Servicio es bajo tu propio riesgo.</p>
+
+    <h2>9. Menores</h2>
+    <p>El Servicio no está dirigido a menores de 13 años. No recopilamos intencionalmente información de menores.</p>
+
+    <h2>10. Cambios a esta política</h2>
+    <p>Podemos actualizar esta política ocasionalmente. El uso continuado del Servicio tras los cambios implica la aceptación de la política actualizada.</p>
+
+    <hr />
+    <a class="back" href="/">← Volver a Partidos al Calendar</a>
+  </div>
+</body>
+</html>

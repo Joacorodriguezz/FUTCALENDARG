@@ -268,6 +268,15 @@ const [loadingTeams, setLoadingTeams] = useState(false);
         )}
       </main>
 
+
+      {/* Footer */}
+      <footer className="border-t border-retro-border py-4 px-4 text-center">
+        <p className="font-retro text-retro-gray text-xs uppercase tracking-widest">
+          <a href="/terms.html" className="hover:text-retro-gold transition-colors">Condiciones de uso</a>
+          <span className="mx-3 opacity-40">|</span>
+          <a href="/privacy.html" className="hover:text-retro-gold transition-colors">Política de privacidad</a>
+        </p>
+      </footer>
       {/* Login Modal */}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
 
