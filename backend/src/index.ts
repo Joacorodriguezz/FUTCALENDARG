@@ -15,6 +15,11 @@ import riscRoutes, { revokedEmails, revokedSubs } from './routes/risc';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+if (!process.env.SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET env var is not set');
+  process.exit(1);
+}
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -30,7 +35,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-secret',
+  secret: process.env.SESSION_SECRET!,
   resave: false,
   saveUninitialized: false,
   cookie: {
