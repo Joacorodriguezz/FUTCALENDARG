@@ -25,10 +25,17 @@ router.post('/add', requireAuth, async (req: Request, res: Response) => {
     return res.status(400).json({ error: `Máximo ${MAX_PARTIDOS} partidos por solicitud` });
   }
 
+  const agregables = partidos.filter(
+    (p) => !p.estado || p.estado === 'NS' || p.estado === 'LIVE'
+  );
+  if (agregables.length === 0) {
+    return res.status(400).json({ error: 'No hay partidos pendientes para agregar' });
+  }
+
   try {
     const result = await addPartidosToCalendar(
       req.session.access_token as string,
-      partidos,
+      agregables,
       force
     );
     return res.json(result);

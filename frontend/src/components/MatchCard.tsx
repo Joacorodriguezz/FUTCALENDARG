@@ -1,5 +1,6 @@
-import { Partido } from '../api/client';
+import { Partido, partidoEsAgregable } from '../api/client';
 import { getLogoByName } from '../data/equipos';
+import { displayNationalTeamName, nationalFlagUrl } from '../data/nationalTeams';
 
 interface Props {
   partido: Partido;
@@ -43,9 +44,18 @@ function CompBadge({ logo, nombre }: { logo?: string | null; nombre: string }) {
   );
 }
 
+function partidoCrestSrc(nombre: string, logo?: string | null): string {
+  const u = logo?.trim() ?? '';
+  if (u && /^https?:\/\//i.test(u)) return u;
+  const local = getLogoByName(nombre);
+  if (local) return local;
+  return nationalFlagUrl(nombre) || '';
+}
+
 function TeamLogo({ nombre, logo }: { nombre: string; logo?: string | null }) {
-  const src = logo || getLogoByName(nombre);
-  if (!src) {
+  const primary = partidoCrestSrc(nombre, logo);
+  const fallback = nationalFlagUrl(nombre);
+  if (!primary) {
     return (
       <div className="w-10 h-10 flex items-center justify-center text-retro-gray text-xs font-retro">
         ?
@@ -54,40 +64,61 @@ function TeamLogo({ nombre, logo }: { nombre: string; logo?: string | null }) {
   }
   return (
     <img
-      src={src}
-      alt={nombre}
+      src={primary}
+      alt=""
       className="w-10 h-10 object-contain"
-      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+      onError={(e) => {
+        const img = e.target as HTMLImageElement;
+        if (fallback && img.src !== fallback) {
+          img.src = fallback;
+          return;
+        }
+        img.style.display = 'none';
+      }}
     />
   );
 }
 
 export function MatchCard({ partido, checked, onToggle }: Props) {
   const { corta, dia } = formatFecha(partido.fecha);
+  const agregable = partidoEsAgregable(partido);
+  const jugado = partido.estado === 'FT';
 
   return (
     <label
-      className={`relative flex flex-col cursor-pointer border-2 transition-all ${
-        checked
+      className={`relative flex flex-col border-2 transition-all ${
+        agregable ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
+      } ${
+        checked && agregable
           ? 'border-retro-gold bg-retro-green/30'
-          : 'border-retro-border bg-retro-card hover:border-retro-gold/50 hover:bg-retro-field'
+          : agregable
+            ? 'border-retro-border bg-retro-card hover:border-retro-gold/50 hover:bg-retro-field'
+            : 'border-retro-border bg-retro-card'
       }`}
     >
       {/* Custom checkbox indicator */}
       <input
         type="checkbox"
-        checked={checked}
-        onChange={onToggle}
+        checked={checked && agregable}
+        disabled={!agregable}
+        onChange={() => {
+          if (agregable) onToggle();
+        }}
         className="sr-only"
       />
+      {!agregable && (
+        <span className="absolute top-1.5 left-1.5 font-retro text-[9px] uppercase tracking-widest text-retro-gray bg-retro-bg/80 px-1.5 py-0.5 border border-retro-border">
+          {jugado ? 'Final' : partido.estado === 'PP' ? 'Aplazado' : '—'}
+        </span>
+      )}
       <div
         className={`absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center border transition-all ${
-          checked
+          checked && agregable
             ? 'border-retro-gold bg-retro-gold'
             : 'border-retro-border bg-retro-card'
         }`}
       >
-        {checked && (
+        {checked && agregable && (
           <svg className="w-3 h-3 text-retro-bg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -98,7 +129,7 @@ export function MatchCard({ partido, checked, onToggle }: Props) {
         <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
           <TeamLogo nombre={partido.equipo_local} logo={partido.logo_local} />
           <span className="font-display text-retro-white text-xs uppercase tracking-wide text-center leading-tight w-full truncate">
-            {partido.equipo_local}
+            {displayNationalTeamName(partido.equipo_local)}
           </span>
         </div>
 
@@ -118,7 +149,7 @@ export function MatchCard({ partido, checked, onToggle }: Props) {
         <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
           <TeamLogo nombre={partido.equipo_visitante} logo={partido.logo_visitante} />
           <span className="font-display text-retro-white text-xs uppercase tracking-wide text-center leading-tight w-full truncate">
-            {partido.equipo_visitante}
+            {displayNationalTeamName(partido.equipo_visitante)}
           </span>
         </div>
       </div>

@@ -11,18 +11,6 @@ body {
   font-family: 'Oswald', 'Arial', sans-serif;
 }
 
-/* Hide scrollbar for team bar but keep scroll */
-.team-bar::-webkit-scrollbar {
-  height: 4px;
-}
-.team-bar::-webkit-scrollbar-track {
-  background: #122012;
-}
-.team-bar::-webkit-scrollbar-thumb {
-  background: #2e5e2e;
-  border: 1px solid #ffd700;
-}
-
 /* Retro scanline overlay on header */
 .scanlines::after {
   content: '';

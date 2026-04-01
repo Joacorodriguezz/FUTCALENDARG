@@ -6,6 +6,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "scrape-promiedos": "ts-node --transpile-only src/scripts/scrapePromiedos.ts",
+    "scrape-worldcup": "ts-node --transpile-only src/scripts/scrapeWorldCup.ts",
+    "scrape-promiedos-wc": "ts-node --transpile-only src/scripts/scrapePromiedosWorldCup.ts",
     "dry-run": "ts-node --transpile-only src/scripts/dryRunScrape.ts",
     "upload-logos": "ts-node --transpile-only src/scripts/uploadLogos.ts"
   },
