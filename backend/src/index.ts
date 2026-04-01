@@ -89,6 +89,18 @@ app.use('/api/teams', teamsRoutes);
 app.use('/api/fixtures', fixturesRoutes);
 app.use('/api/leagues', leaguesRoutes);
 
+// Keep-alive health check — pings Supabase to prevent free-tier sleep
+app.get('/api/health', async (_req, res) => {
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    await sb.from('leagues').select('id').limit(1);
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  } catch {
+    res.status(500).json({ status: 'error', timestamp: new Date().toISOString() });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend running on http://localhost:${PORT}`);
 });
