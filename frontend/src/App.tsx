@@ -14,16 +14,29 @@ import { TeamSelector } from './components/TeamSelector';
 import { MatchList } from './components/MatchList';
 import { LoginModal } from './components/LoginModal';
 import { ConflictModal } from './components/ConflictModal';
+import ModeTabs from './components/ModeTabs';
 
 const SESSION_KEY = 'partidos_pending';
 
 type Toast = { type: 'success' | 'error'; message: string };
 
 export default function App() {
+  // Mode state
+  const [mode, setMode] = useState<'liga' | 'mundial'>('liga');
+
+  // Liga Profesional state
   const [team, setTeam] = useState<Team | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
-const [loadingTeams, setLoadingTeams] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(false);
   const [partidos, setPartidos] = useState<Partido[]>([]);
+
+  // World Cup state
+  const [worldCupTeam, setWorldCupTeam] = useState<Team | null>(null);
+  const [worldCupTeams, setWorldCupTeams] = useState<Team[]>([]);
+  const [loadingWorldCupTeams, setLoadingWorldCupTeams] = useState(false);
+  const [worldCupPartidos, setWorldCupPartidos] = useState<Partido[]>([]);
+
+  // Shared state
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loadingPartidos, setLoadingPartidos] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
@@ -40,14 +53,20 @@ const [loadingTeams, setLoadingTeams] = useState(false);
   }
 
   useEffect(() => {
-    // Load teams and leagues on mount
+    // Load Liga Profesional teams
     setLoadingTeams(true);
     fetchTeams()
       .then((teamsData) => {
-        setTeams(teamsData.filter(t => LP_TEAM_NAMES.has(t.name)));
+        const lpTeams = teamsData.filter(t => LP_TEAM_NAMES.has(t.name));
+        const wcTeams = teamsData.filter(t => t.division === 'World Cup');
+        setTeams(lpTeams);
+        setWorldCupTeams(wcTeams);
       })
       .catch(() => showToast({ type: 'error', message: 'Error al cargar los equipos.' }))
-      .finally(() => setLoadingTeams(false));
+      .finally(() => {
+        setLoadingTeams(false);
+        setLoadingWorldCupTeams(false);
+      });
 
     // Auth check + post-OAuth recovery
     const params = new URLSearchParams(window.location.search);
@@ -73,19 +92,28 @@ const [loadingTeams, setLoadingTeams] = useState(false);
   }, []);
 
   const handleTeamSelect = useCallback(async (t: Team) => {
-    setTeam(t);
-    setPartidos([]);
+    if (mode === 'liga') {
+      setTeam(t);
+      setPartidos([]);
+    } else {
+      setWorldCupTeam(t);
+      setWorldCupPartidos([]);
+    }
     setSelected(new Set());
     setLoadingPartidos(true);
     try {
       const data = await fetchFixtures(t.id);
-      setPartidos(data);
+      if (mode === 'liga') {
+        setPartidos(data);
+      } else {
+        setWorldCupPartidos(data);
+      }
     } catch {
       showToast({ type: 'error', message: 'Error al cargar partidos. Intenta de nuevo.' });
     } finally {
       setLoadingPartidos(false);
     }
-  }, []);
+  }, [mode]);
 
   function togglePartido(id: string) {
     setSelected((prev) => {
@@ -152,7 +180,8 @@ const [loadingTeams, setLoadingTeams] = useState(false);
   }
 
   function handleAddToCalendar() {
-    const toAdd = partidos.filter((p) => selected.has(p.id));
+    const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
+    const toAdd = currentPartidos.filter((p) => selected.has(p.id));
     if (toAdd.length === 0) return;
     if (!authenticated) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(toAdd));
@@ -163,13 +192,19 @@ const [loadingTeams, setLoadingTeams] = useState(false);
   }
 
   function handleAddAll() {
-    if (partidos.length === 0) return;
+    const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
+    if (currentPartidos.length === 0) return;
     if (!authenticated) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(partidos));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentPartidos));
       setShowLogin(true);
     } else {
-      doAddToCalendar(partidos, false);
+      doAddToCalendar(currentPartidos, false);
     }
+  }
+
+  function handleModeChange(newMode: 'liga' | 'mundial') {
+    setMode(newMode);
+    setSelected(new Set());
   }
 
   function handleConfirmConflicts() {
@@ -178,7 +213,11 @@ const [loadingTeams, setLoadingTeams] = useState(false);
     doAddToCalendar(conflictPartidos, true);
   }
 
-  const teamLogoSrc = team ? (team.logo || getLogoByName(team.name) || '') : '';
+  const currentTeam = mode === 'liga' ? team : worldCupTeam;
+  const currentTeams = mode === 'liga' ? teams : worldCupTeams;
+  const currentLoadingTeams = mode === 'liga' ? loadingTeams : loadingWorldCupTeams;
+  const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
+  const teamLogoSrc = currentTeam ? (currentTeam.logo || getLogoByName(currentTeam.name) || '') : '';
 
   return (
     <div className="min-h-screen bg-retro-bg flex flex-col">
@@ -188,9 +227,18 @@ const [loadingTeams, setLoadingTeams] = useState(false);
           <h1 className="font-display text-2xl sm:text-4xl text-retro-gold tracking-widest flex-shrink-0">
             FUTCALENDARG
           </h1>
-{team && (
+          {currentTeam && (
             <button
-              onClick={() => { setTeam(null); setPartidos([]); setSelected(new Set()); }}
+              onClick={() => {
+                if (mode === 'liga') {
+                  setTeam(null);
+                  setPartidos([]);
+                } else {
+                  setWorldCupTeam(null);
+                  setWorldCupPartidos([]);
+                }
+                setSelected(new Set());
+              }}
               className="ml-auto text-retro-gray font-retro text-sm uppercase tracking-wider hover:text-retro-gold transition-colors border border-retro-border px-4 py-2.5 min-h-[44px] flex items-center flex-shrink-0"
             >
               INICIO
@@ -198,33 +246,43 @@ const [loadingTeams, setLoadingTeams] = useState(false);
           )}
         </div>
         <TeamSelector
-          teams={teams}
-          loading={loadingTeams}
-          selected={team}
+          teams={currentTeams}
+          loading={currentLoadingTeams}
+          selected={currentTeam}
           onChange={handleTeamSelect}
         />
       </header>
 
       {/* Main content */}
       <main className="flex-1 px-4 py-8">
-        {!team ? (
+        {/* Mode Tabs */}
+        <ModeTabs mode={mode} onModeChange={handleModeChange} />
+
+        {!currentTeam ? (
           <div className="flex flex-col items-center justify-center min-h-[55vh] text-center">
             <div className="border-2 border-retro-gold p-10 max-w-xl w-full relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-retro-bg px-4">
-                <span className="font-display text-retro-gold text-sm tracking-widest">LIGA PROFESIONAL ARG</span>
+                <span className="font-display text-retro-gold text-sm tracking-widest">
+                  {mode === 'liga' ? 'LIGA PROFESIONAL ARG' : 'MUNDIAL 2026'}
+                </span>
               </div>
-              <div className="text-7xl mb-6 leading-none">&#9917;</div>
+              <div className="text-7xl mb-6 leading-none">
+                {mode === 'liga' ? '⚽' : '🏆'}
+              </div>
               <h2 className="font-display text-5xl text-retro-white tracking-widest mb-4 uppercase leading-tight">
                 TUS PARTIDOS<br />
                 <span className="text-retro-gold">EN GOOGLE CALENDAR</span>
               </h2>
               <p className="font-retro text-retro-gray text-base uppercase tracking-widest leading-relaxed">
-                Selecciona tu equipo en la barra de arriba<br />
+                {mode === 'liga'
+                  ? 'Selecciona tu equipo en la barra de arriba'
+                  : 'Selecciona tu selección en la barra de arriba'
+                }<br />
                 y agrega los proximos partidos a tu calendario
               </p>
               <div className="mt-8 pt-4 border-t border-retro-border">
                 <p className="font-display text-retro-gold text-lg tracking-widest animate-pulse">
-                  &uarr; ELEGÍ TU EQUIPO &uarr;
+                  {mode === 'liga' ? '↑ ELEGÍ TU EQUIPO ↑' : '↑ ELEGÍ TU SELECCIÓN ↑'}
                 </p>
               </div>
             </div>
@@ -235,12 +293,12 @@ const [loadingTeams, setLoadingTeams] = useState(false);
             <div className="flex flex-col items-center mb-6 pb-5 border-b-2 border-retro-border">
               <img
                 src={teamLogoSrc}
-                alt={team.name}
+                alt={currentTeam.name}
                 className="w-20 h-20 object-contain mb-3"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
               <h2 className="font-display text-4xl text-retro-gold tracking-widest uppercase">
-                {team.name}
+                {currentTeam.name}
               </h2>
             </div>
 
@@ -257,7 +315,7 @@ const [loadingTeams, setLoadingTeams] = useState(false);
               </div>
             ) : (
               <MatchList
-                partidos={partidos}
+                partidos={currentPartidos}
                 selected={selected}
                 onToggle={togglePartido}
                 onAddToCalendar={handleAddToCalendar}
