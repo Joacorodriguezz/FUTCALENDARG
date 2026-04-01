@@ -5,6 +5,9 @@ import { Partido } from '../types/partido';
 const router = Router();
 
 // GET /api/fixtures?team_id=<uuid>&league_id=<uuid>&status=NS
+// status puede ser uno solo o lista separada por comas: NS,LIVE,FT (p. ej. Mundial: ver fase de grupos completa)
+const ALLOWED_STATUS = new Set(['NS', 'LIVE', 'FT', 'PP']);
+
 router.get('/', async (req: Request, res: Response) => {
   const { team_id, league_id, status } = req.query;
 
@@ -12,9 +15,14 @@ router.get('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'team_id query param required' });
   }
 
-  const statusFilter = typeof status === 'string' ? status : 'NS';
+  const rawStatus = typeof status === 'string' ? status : 'NS';
+  const statuses = rawStatus
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => ALLOWED_STATUS.has(s));
+  const statusList = statuses.length > 0 ? statuses : ['NS'];
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('fixtures')
     .select(`
       id,
@@ -28,8 +36,10 @@ router.get('/', async (req: Request, res: Response) => {
       league:league_id ( name, logo )
     `)
     .or(`home_team_id.eq.${team_id},away_team_id.eq.${team_id}`)
-    .eq('status', statusFilter)
+    .in('status', statusList)
     .order('date');
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Supabase fixtures error:', error);
@@ -66,6 +76,7 @@ router.get('/', async (req: Request, res: Response) => {
       competicion_nombre: league?.name ?? '',
       competicion_logo: league?.logo ?? null,
       estadio: (f.venue as string) ?? undefined,
+      estado: (f.status as string) ?? 'NS',
     };
   });
 

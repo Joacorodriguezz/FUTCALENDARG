@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getLogoByName, LP_TEAM_NAMES } from './data/equipos';
 import {
+  displayNationalTeamName,
+  isWorldCup2026Team,
+  nationalFlagUrl,
+  resolveNationalCrest,
+} from './data/nationalTeams';
+import {
   ConflictInfo,
   Partido,
   Team,
@@ -9,12 +15,13 @@ import {
   fetchAuthStatus,
   fetchFixtures,
   fetchTeams,
+  partidoEsAgregable,
 } from './api/client';
 import { TeamSelector } from './components/TeamSelector';
 import { MatchList } from './components/MatchList';
 import { LoginModal } from './components/LoginModal';
 import { ConflictModal } from './components/ConflictModal';
-import ModeTabs from './components/ModeTabs';
+import CompetitionSelect from './components/CompetitionSelect';
 
 const SESSION_KEY = 'partidos_pending';
 
@@ -58,7 +65,7 @@ export default function App() {
     fetchTeams()
       .then((teamsData) => {
         const lpTeams = teamsData.filter(t => LP_TEAM_NAMES.has(t.name));
-        const wcTeams = teamsData.filter(t => t.division === 'World Cup');
+        const wcTeams = teamsData.filter(t => t.division === 'World Cup' && isWorldCup2026Team(t.name));
         setTeams(lpTeams);
         setWorldCupTeams(wcTeams);
       })
@@ -88,7 +95,7 @@ export default function App() {
         showToast({ type: 'error', message: 'Error al autenticarse con Google.' });
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleTeamSelect = useCallback(async (t: Team) => {
@@ -102,7 +109,11 @@ export default function App() {
     setSelected(new Set());
     setLoadingPartidos(true);
     try {
-      const data = await fetchFixtures(t.id);
+      const data = await fetchFixtures(t.id, {
+        leagueId: t.league_id,
+        // Incluir finalizados para ver el calendario completo; solo NS/LIVE son agregables
+        status: 'NS,LIVE,FT',
+      });
       if (mode === 'liga') {
         setPartidos(data);
       } else {
@@ -181,7 +192,9 @@ export default function App() {
 
   function handleAddToCalendar() {
     const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
-    const toAdd = currentPartidos.filter((p) => selected.has(p.id));
+    const toAdd = currentPartidos.filter(
+      (p) => selected.has(p.id) && partidoEsAgregable(p)
+    );
     if (toAdd.length === 0) return;
     if (!authenticated) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(toAdd));
@@ -193,12 +206,13 @@ export default function App() {
 
   function handleAddAll() {
     const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
-    if (currentPartidos.length === 0) return;
+    const toAdd = currentPartidos.filter(partidoEsAgregable);
+    if (toAdd.length === 0) return;
     if (!authenticated) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentPartidos));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(toAdd));
       setShowLogin(true);
     } else {
-      doAddToCalendar(currentPartidos, false);
+      doAddToCalendar(toAdd, false);
     }
   }
 
@@ -217,18 +231,29 @@ export default function App() {
   const currentTeams = mode === 'liga' ? teams : worldCupTeams;
   const currentLoadingTeams = mode === 'liga' ? loadingTeams : loadingWorldCupTeams;
   const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
-  const teamLogoSrc = currentTeam ? (currentTeam.logo || getLogoByName(currentTeam.name) || '') : '';
+  const teamLogoSrc = currentTeam
+    ? (mode === 'mundial'
+      ? resolveNationalCrest(currentTeam.name, currentTeam.logo)
+      : (currentTeam.logo || getLogoByName(currentTeam.name) || ''))
+    : '';
+  const teamFlagFallback =
+    currentTeam && mode === 'mundial' ? nationalFlagUrl(currentTeam.name) : '';
+  const teamTitle =
+    currentTeam && mode === 'mundial'
+      ? displayNationalTeamName(currentTeam.name)
+      : (currentTeam?.name ?? '');
 
   return (
     <div className="min-h-screen bg-retro-bg flex flex-col">
       {/* Header */}
       <header className="bg-retro-field border-b-2 border-retro-gold relative scanlines">
-        <div className="px-3 py-2 flex items-center gap-3">
-          <h1 className="font-display text-2xl sm:text-4xl text-retro-gold tracking-widest flex-shrink-0">
+        <div className="px-3 py-2 flex flex-wrap items-center gap-2 sm:gap-3">
+          <h1 className="font-display text-xl sm:text-3xl md:text-4xl text-retro-gold tracking-widest flex-shrink-0">
             FUTCALENDARG
           </h1>
           {currentTeam && (
             <button
+              type="button"
               onClick={() => {
                 if (mode === 'liga') {
                   setTeam(null);
@@ -239,25 +264,24 @@ export default function App() {
                 }
                 setSelected(new Set());
               }}
-              className="ml-auto text-retro-gray font-retro text-sm uppercase tracking-wider hover:text-retro-gold transition-colors border border-retro-border px-4 py-2.5 min-h-[44px] flex items-center flex-shrink-0"
+              className="text-retro-gray font-retro text-sm uppercase tracking-wider hover:text-retro-gold transition-colors border border-retro-border px-4 py-2.5 min-h-[44px] flex items-center flex-shrink-0 sm:ml-auto"
             >
               INICIO
             </button>
           )}
         </div>
+        <CompetitionSelect mode={mode} onModeChange={handleModeChange} />
         <TeamSelector
           teams={currentTeams}
           loading={currentLoadingTeams}
           selected={currentTeam}
           onChange={handleTeamSelect}
+          variant={mode === 'mundial' ? 'national' : 'club'}
         />
       </header>
 
       {/* Main content */}
-      <main className="flex-1 px-4 py-8">
-        {/* Mode Tabs */}
-        <ModeTabs mode={mode} onModeChange={handleModeChange} />
-
+      <main className="flex-1 px-4 py-6 sm:py-8">
         {!currentTeam ? (
           <div className="flex flex-col items-center justify-center min-h-[55vh] text-center">
             <div className="border-2 border-retro-gold p-10 max-w-xl w-full relative">
@@ -274,15 +298,14 @@ export default function App() {
                 <span className="text-retro-gold">EN GOOGLE CALENDAR</span>
               </h2>
               <p className="font-retro text-retro-gray text-base uppercase tracking-widest leading-relaxed">
-                {mode === 'liga'
-                  ? 'Selecciona tu equipo en la barra de arriba'
-                  : 'Selecciona tu selección en la barra de arriba'
-                }<br />
-                y agrega los proximos partidos a tu calendario
+                Usá las pestañas de competición y el botón con borde dorado “listado” para elegir
+                {mode === 'liga' ? ' tu equipo' : ' tu selección'}.
+                <br />
+                Agregá los próximos partidos a tu calendario.
               </p>
               <div className="mt-8 pt-4 border-t border-retro-border">
                 <p className="font-display text-retro-gold text-lg tracking-widest animate-pulse">
-                  {mode === 'liga' ? '↑ ELEGÍ TU EQUIPO ↑' : '↑ ELEGÍ TU SELECCIÓN ↑'}
+                  PESTAÑAS ↑ · LISTADO ↑
                 </p>
               </div>
             </div>
@@ -293,12 +316,19 @@ export default function App() {
             <div className="flex flex-col items-center mb-6 pb-5 border-b-2 border-retro-border">
               <img
                 src={teamLogoSrc}
-                alt={currentTeam.name}
+                alt={teamTitle}
                 className="w-20 h-20 object-contain mb-3"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                onError={(e) => {
+                  const img = e.target as HTMLImageElement;
+                  if (teamFlagFallback && img.src !== teamFlagFallback) {
+                    img.src = teamFlagFallback;
+                    return;
+                  }
+                  img.style.display = 'none';
+                }}
               />
               <h2 className="font-display text-4xl text-retro-gold tracking-widest uppercase">
-                {currentTeam.name}
+                {teamTitle}
               </h2>
             </div>
 
@@ -352,11 +382,10 @@ export default function App() {
       {toast && createPortal(
         <div
           style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
-          className={`fixed left-1/2 -translate-x-1/2 w-[90vw] max-w-sm px-5 py-3 font-display text-base tracking-widest shadow-lg border-2 uppercase text-center z-[9999] ${
-            toast.type === 'success'
+          className={`fixed left-1/2 -translate-x-1/2 w-[90vw] max-w-sm px-5 py-3 font-display text-base tracking-widest shadow-lg border-2 uppercase text-center z-[9999] ${toast.type === 'success'
               ? 'bg-retro-green-light border-retro-gold text-retro-white'
               : 'bg-retro-red border-retro-gold text-retro-white'
-          }`}
+            }`}
         >
           {toast.message}
         </div>,

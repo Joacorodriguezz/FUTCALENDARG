@@ -10,6 +10,13 @@ export interface Partido {
   competicion_nombre: string;
   competicion_logo?: string | null;
   estadio?: string;
+  /** NS | LIVE | FT | PP — solo NS/LIVE se pueden agregar al calendario */
+  estado?: string;
+}
+
+/** Partidos que aún se pueden agregar a Google Calendar */
+export function partidoEsAgregable(p: Partido): boolean {
+  return !p.estado || p.estado === 'NS' || p.estado === 'LIVE';
 }
 
 export interface Team {
@@ -58,9 +65,13 @@ export async function fetchTeams(leagueId?: string): Promise<Team[]> {
   return res.json();
 }
 
-export async function fetchFixtures(teamId: string, leagueId?: string): Promise<Partido[]> {
-  let url = `${BASE}/fixtures?team_id=${encodeURIComponent(teamId)}&status=NS`;
-  if (leagueId) url += `&league_id=${encodeURIComponent(leagueId)}`;
+export async function fetchFixtures(
+  teamId: string,
+  options?: { leagueId?: string; status?: string }
+): Promise<Partido[]> {
+  const status = options?.status ?? 'NS';
+  let url = `${BASE}/fixtures?team_id=${encodeURIComponent(teamId)}&status=${encodeURIComponent(status)}`;
+  if (options?.leagueId) url += `&league_id=${encodeURIComponent(options.leagueId)}`;
   const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) throw new Error('Error al obtener partidos');
   return res.json();

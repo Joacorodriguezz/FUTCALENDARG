@@ -10,4 +10,6 @@ export interface Partido {
   competicion_nombre: string; // league name (Liga Profesional Argentina, etc.)
   competicion_logo?: string | null;
   estadio?: string;
+  /** NS | LIVE | FT | PP — solo NS/LIVE se pueden agregar al calendario */
+  estado?: string;
 }
