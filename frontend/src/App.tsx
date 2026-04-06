@@ -110,9 +110,10 @@ export default function App() {
     setLoadingPartidos(true);
     try {
       const data = await fetchFixtures(t.id, {
-        leagueId: t.league_id,
-        // Incluir finalizados para ver el calendario completo; solo NS/LIVE son agregables
-        status: 'NS,LIVE,FT',
+        // Para World Cup pasamos leagueId para filtrar solo esa competencia;
+        // para liga NO lo pasamos para incluir Libertadores, Sudamericana, etc.
+        leagueId: mode === 'mundial' ? t.league_id : undefined,
+        status: 'NS,LIVE',
       });
       if (mode === 'liga') {
         setPartidos(data);
@@ -383,8 +384,8 @@ export default function App() {
         <div
           style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
           className={`fixed left-1/2 -translate-x-1/2 w-[90vw] max-w-sm px-5 py-3 font-display text-base tracking-widest shadow-lg border-2 uppercase text-center z-[9999] ${toast.type === 'success'
-              ? 'bg-retro-green-light border-retro-gold text-retro-white'
-              : 'bg-retro-red border-retro-gold text-retro-white'
+            ? 'bg-retro-green-light border-retro-gold text-retro-white'
+            : 'bg-retro-red border-retro-gold text-retro-white'
             }`}
         >
           {toast.message}

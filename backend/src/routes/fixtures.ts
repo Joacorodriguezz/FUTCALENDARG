@@ -37,6 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
     `)
     .or(`home_team_id.eq.${team_id},away_team_id.eq.${team_id}`)
     .in('status', statusList)
+    .gte('date', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()) // ignorar partidos de hace más de 3h
     .order('date');
 
   const { data, error } = await query;
