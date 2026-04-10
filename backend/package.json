@@ -9,7 +9,8 @@
     "scrape-worldcup": "ts-node --transpile-only src/scripts/scrapeWorldCup.ts",
     "scrape-promiedos-wc": "ts-node --transpile-only src/scripts/scrapePromiedosWorldCup.ts",
     "dry-run": "ts-node --transpile-only src/scripts/dryRunScrape.ts",
-    "upload-logos": "ts-node --transpile-only src/scripts/uploadLogos.ts"
+    "upload-logos": "ts-node --transpile-only src/scripts/uploadLogos.ts",
+    "scrape-leagues": "ts-node --transpile-only src/scripts/scrapeLeagues.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

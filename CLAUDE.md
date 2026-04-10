@@ -10,9 +10,13 @@ cd backend
 npm run dev              # Start dev server on :3001 (ts-node-dev, hot reload)
 npx tsc --noEmit         # Type-check without building
 npm run build            # Compile to dist/
-npm run scrape-promiedos # Scrape promiedos and upsert into Supabase
-npm run dry-run          # Scrape all 4 leagues → saves JSON locally, no Supabase
-npm run upload-logos     # Convert PNGs to WebP and upload to Supabase Storage
+npm run scrape-promiedos    # Scrape promiedos and upsert into Supabase
+npm run dry-run             # Scrape all 4 leagues → saves JSON locally, no Supabase
+npm run upload-logos        # Convert PNGs to WebP and upload to Supabase Storage
+npm run scrape-worldcup     # Scrape FIFA World Cup 2026 from football-data.org → Supabase
+npm run scrape-promiedos-wc # Scrape World Cup fixtures from promiedos (fjda) → Supabase
+npm run scrape-leagues      # Scrape ligas internacionales from football-data.org → Supabase
+                            # Uso: npm run scrape-leagues -- PL CL SA (args opcionales)
 ```
 
 ### Frontend
@@ -168,6 +172,9 @@ The `logo` column in both `teams` and `leagues` stores these public URLs.
 | `scrapePromiedos.ts` | `scrape-promiedos` | Scrapes 4 leagues from promiedos API, upserts into Supabase. Filters Copa Argentina / Libertadores / Sudamericana to LP teams only. |
 | `dryRunScrape.ts` | `dry-run` | Same scraping logic but outputs to `scrape-output.json` in project root. No Supabase writes. |
 | `uploadLogos.ts` | `upload-logos` | Reads LOGO_MAP, converts PNGs to WebP (64×64), uploads to Supabase Storage, updates `teams.logo` and `leagues.logo` with public URLs. Requires `sharp`. |
+| `scrapeWorldCup.ts` | `scrape-worldcup` | Scrapes FIFA World Cup 2026 teams, groups and fixtures from **football-data.org** (API v4). Upserts league, teams, and fixtures into Supabase. Rate-limited to 10 req/min (free tier). Run this **before** `scrape-promiedos-wc`. |
+| `scrapePromiedosWorldCup.ts` | `scrape-promiedos-wc` | Scrapes World Cup fixtures from promiedos (liga `fjda`). Maps Spanish team names to the English canonical names already in DB (inserted by `scrape-worldcup`). Run **after** `scrape-worldcup`. |
+| `scrapeLeagues.ts` | `scrape-leagues` | Scrapes ligas internacionales desde football-data.org (PL, CL, SA, PD, BL1, FL1, DED, BSA, PPL, ELC, EC). Acepta códigos de liga como args CLI. Guarda `crest`/`emblem` URLs directamente en DB. Temporada calculada automáticamente (mes ≥ 8 → año actual, si no → anterior; BSA siempre año actual). |
 
 ---
 
@@ -208,7 +215,8 @@ Headers required: `User-Agent`, `Referer: https://www.promiedos.com.ar/`, `x-ver
 
 | Service | Purpose |
 |---------|---------|
-| promiedos.com.ar | Scraping de fixtures, equipos y ligas argentinas |
+| promiedos.com.ar | Scraping de fixtures, equipos y ligas argentinas + Mundial |
+| football-data.org | Scraping de fixtures y equipos del FIFA World Cup 2026 (API v4, free tier) |
 | Supabase | PostgreSQL (datos) + Storage (logos) |
 | Google OAuth 2.0 | User login |
 | Google Calendar API | Creates calendar events for selected fixtures |
@@ -252,3 +260,5 @@ Required env vars:
 - `SUPABASE_URL` — from Supabase project settings
 - `SUPABASE_ANON_KEY` — used by the Express server (read-only routes)
 - `SUPABASE_SERVICE_ROLE_KEY` — used by scraper and upload scripts (write access)
+- `FOOTBALL_DATA_API_KEY` — API key for football-data.org (free tier, 10 req/min). Get one at https://www.football-data.org/client/register
+- `FOOTBALL_DATA_WC_SEASON` — (optional) World Cup season year, defaults to `2026`
