@@ -4,7 +4,7 @@ import { Partido } from '../types/partido';
 
 const router = Router();
 
-const MAX_PARTIDOS = 15;
+const MAX_PARTIDOS = 50;
 
 function requireAuth(req: Request, res: Response, next: () => void) {
   if (!req.session.access_token) {
