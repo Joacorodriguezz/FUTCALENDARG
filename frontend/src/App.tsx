@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getLogoByName, LP_TEAM_NAMES } from './data/equipos';
 import {
   displayNationalTeamName,
-  isWorldCup2026Team,
   nationalFlagUrl,
   resolveNationalCrest,
 } from './data/nationalTeams';
 import {
   ConflictInfo,
+  League,
   Partido,
   Team,
   addToCalendar,
   fetchAuthStatus,
   fetchFixtures,
+  fetchLeagues,
   fetchTeams,
   partidoEsAgregable,
 } from './api/client';
@@ -28,20 +29,17 @@ const SESSION_KEY = 'partidos_pending';
 type Toast = { type: 'success' | 'error'; message: string };
 
 export default function App() {
-  // Mode state
-  const [mode, setMode] = useState<'liga' | 'mundial'>('liga');
+  // Mode — 'liga' para Liga Profesional, UUID de la liga para internacionales
+  const [mode, setMode] = useState<string>('liga');
 
-  // Liga Profesional state
-  const [team, setTeam] = useState<Team | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
+  // Teams & leagues
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [leagues, setLeagues] = useState<League[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
-  const [partidos, setPartidos] = useState<Partido[]>([]);
 
-  // World Cup state
-  const [worldCupTeam, setWorldCupTeam] = useState<Team | null>(null);
-  const [worldCupTeams, setWorldCupTeams] = useState<Team[]>([]);
-  const [loadingWorldCupTeams, setLoadingWorldCupTeams] = useState(false);
-  const [worldCupPartidos, setWorldCupPartidos] = useState<Partido[]>([]);
+  // Equipo seleccionado y sus partidos
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [partidos, setPartidos] = useState<Partido[]>([]);
 
   // Shared state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -60,20 +58,14 @@ export default function App() {
   }
 
   useEffect(() => {
-    // Load Liga Profesional teams
     setLoadingTeams(true);
-    fetchTeams()
-      .then((teamsData) => {
-        const lpTeams = teamsData.filter(t => LP_TEAM_NAMES.has(t.name));
-        const wcTeams = teamsData.filter(t => t.division === 'World Cup' && isWorldCup2026Team(t.name));
-        setTeams(lpTeams);
-        setWorldCupTeams(wcTeams);
+    Promise.all([fetchTeams(), fetchLeagues()])
+      .then(([teamsData, leaguesData]) => {
+        setAllTeams(teamsData);
+        setLeagues(leaguesData);
       })
       .catch(() => showToast({ type: 'error', message: 'Error al cargar los equipos.' }))
-      .finally(() => {
-        setLoadingTeams(false);
-        setLoadingWorldCupTeams(false);
-      });
+      .finally(() => setLoadingTeams(false));
 
     // Auth check + post-OAuth recovery
     const params = new URLSearchParams(window.location.search);
@@ -99,26 +91,18 @@ export default function App() {
   }, []);
 
   const handleTeamSelect = useCallback(async (t: Team) => {
-    if (mode === 'liga') {
-      setTeam(t);
-      setPartidos([]);
-    } else {
-      setWorldCupTeam(t);
-      setWorldCupPartidos([]);
-    }
+    setSelectedTeam(t);
+    setPartidos([]);
     setSelected(new Set());
     setLoadingPartidos(true);
     try {
       const data = await fetchFixtures(t.id, {
-        leagueId: t.league_id,
-        // Incluir finalizados para ver el calendario completo; solo NS/LIVE son agregables
-        status: 'NS,LIVE,FT',
+        // Liga Pro: sin leagueId → incluye Libertadores, Sudamericana, etc.
+        // Internacionales: filtramos solo esa liga
+        leagueId: mode === 'liga' ? undefined : mode,
+        status: 'NS,LIVE',
       });
-      if (mode === 'liga') {
-        setPartidos(data);
-      } else {
-        setWorldCupPartidos(data);
-      }
+      setPartidos(data);
     } catch {
       showToast({ type: 'error', message: 'Error al cargar partidos. Intenta de nuevo.' });
     } finally {
@@ -191,8 +175,7 @@ export default function App() {
   }
 
   function handleAddToCalendar() {
-    const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
-    const toAdd = currentPartidos.filter(
+    const toAdd = partidos.filter(
       (p) => selected.has(p.id) && partidoEsAgregable(p)
     );
     if (toAdd.length === 0) return;
@@ -205,8 +188,7 @@ export default function App() {
   }
 
   function handleAddAll() {
-    const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
-    const toAdd = currentPartidos.filter(partidoEsAgregable);
+    const toAdd = partidos.filter(partidoEsAgregable);
     if (toAdd.length === 0) return;
     if (!authenticated) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(toAdd));
@@ -216,8 +198,10 @@ export default function App() {
     }
   }
 
-  function handleModeChange(newMode: 'liga' | 'mundial') {
+  function handleModeChange(newMode: string) {
     setMode(newMode);
+    setSelectedTeam(null);
+    setPartidos([]);
     setSelected(new Set());
   }
 
@@ -227,21 +211,33 @@ export default function App() {
     doAddToCalendar(conflictPartidos, true);
   }
 
-  const currentTeam = mode === 'liga' ? team : worldCupTeam;
-  const currentTeams = mode === 'liga' ? teams : worldCupTeams;
-  const currentLoadingTeams = mode === 'liga' ? loadingTeams : loadingWorldCupTeams;
-  const currentPartidos = mode === 'liga' ? partidos : worldCupPartidos;
-  const teamLogoSrc = currentTeam
-    ? (mode === 'mundial'
-      ? resolveNationalCrest(currentTeam.name, currentTeam.logo)
-      : (currentTeam.logo || getLogoByName(currentTeam.name) || ''))
+  const currentLeague = leagues.find((l) => l.id === mode) ?? null;
+  // Competencias de selecciones nacionales (Mundial, Eurocopa) → display con banderas y nombres en español
+  const isNationalTeams =
+    currentLeague != null &&
+    (currentLeague.name.includes('World Cup') || currentLeague.name.includes('European Championship'));
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const currentTeams = useMemo(
+    () =>
+      mode === 'liga'
+        ? allTeams.filter((t) => LP_TEAM_NAMES.has(t.name))
+        : allTeams.filter((t) => t.league_id === mode),
+    [mode, allTeams]
+  );
+
+  const teamLogoSrc = selectedTeam
+    ? mode === 'liga'
+      ? selectedTeam.logo || getLogoByName(selectedTeam.name) || ''
+      : isNationalTeams
+        ? resolveNationalCrest(selectedTeam.name, selectedTeam.logo)
+        : selectedTeam.logo || ''
     : '';
-  const teamFlagFallback =
-    currentTeam && mode === 'mundial' ? nationalFlagUrl(currentTeam.name) : '';
+  const teamFlagFallback = selectedTeam && isNationalTeams ? nationalFlagUrl(selectedTeam.name) : '';
   const teamTitle =
-    currentTeam && mode === 'mundial'
-      ? displayNationalTeamName(currentTeam.name)
-      : (currentTeam?.name ?? '');
+    selectedTeam && isNationalTeams
+      ? displayNationalTeamName(selectedTeam.name)
+      : (selectedTeam?.name ?? '');
 
   return (
     <div className="min-h-screen bg-retro-bg flex flex-col">
@@ -251,17 +247,12 @@ export default function App() {
           <h1 className="font-display text-xl sm:text-3xl md:text-4xl text-retro-gold tracking-widest flex-shrink-0">
             FUTCALENDARG
           </h1>
-          {currentTeam && (
+          {selectedTeam && (
             <button
               type="button"
               onClick={() => {
-                if (mode === 'liga') {
-                  setTeam(null);
-                  setPartidos([]);
-                } else {
-                  setWorldCupTeam(null);
-                  setWorldCupPartidos([]);
-                }
+                setSelectedTeam(null);
+                setPartidos([]);
                 setSelected(new Set());
               }}
               className="text-retro-gray font-retro text-sm uppercase tracking-wider hover:text-retro-gold transition-colors border border-retro-border px-4 py-2.5 min-h-[44px] flex items-center flex-shrink-0 sm:ml-auto"
@@ -270,24 +261,24 @@ export default function App() {
             </button>
           )}
         </div>
-        <CompetitionSelect mode={mode} onModeChange={handleModeChange} />
+        <CompetitionSelect mode={mode} leagues={leagues} onModeChange={handleModeChange} />
         <TeamSelector
           teams={currentTeams}
-          loading={currentLoadingTeams}
-          selected={currentTeam}
+          loading={loadingTeams}
+          selected={selectedTeam}
           onChange={handleTeamSelect}
-          variant={mode === 'mundial' ? 'national' : 'club'}
+          variant={isNationalTeams ? 'national' : 'club'}
         />
       </header>
 
       {/* Main content */}
       <main className="flex-1 px-4 py-6 sm:py-8">
-        {!currentTeam ? (
+        {!selectedTeam ? (
           <div className="flex flex-col items-center justify-center min-h-[55vh] text-center">
             <div className="border-2 border-retro-gold p-10 max-w-xl w-full relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-retro-bg px-4">
                 <span className="font-display text-retro-gold text-sm tracking-widest">
-                  {mode === 'liga' ? 'LIGA PROFESIONAL ARG' : 'MUNDIAL 2026'}
+                  {mode === 'liga' ? 'LIGA PROFESIONAL ARG' : (currentLeague?.name.toUpperCase() ?? '')}
                 </span>
               </div>
               <div className="text-7xl mb-6 leading-none">
@@ -297,9 +288,9 @@ export default function App() {
                 TUS PARTIDOS<br />
                 <span className="text-retro-gold">EN GOOGLE CALENDAR</span>
               </h2>
-              <p className="font-retro text-retro-gray text-base uppercase tracking-widest leading-relaxed">
+              <p className="font-retro text-retro-white text-base uppercase tracking-widest leading-relaxed">
                 Usá las pestañas de competición y el botón con borde dorado “listado” para elegir
-                {mode === 'liga' ? ' tu equipo' : ' tu selección'}.
+                {isNationalTeams ? ' tu selección' : ' tu equipo'}.
                 <br />
                 Agregá los próximos partidos a tu calendario.
               </p>
@@ -345,7 +336,7 @@ export default function App() {
               </div>
             ) : (
               <MatchList
-                partidos={currentPartidos}
+                partidos={partidos}
                 selected={selected}
                 onToggle={togglePartido}
                 onAddToCalendar={handleAddToCalendar}
@@ -383,8 +374,8 @@ export default function App() {
         <div
           style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
           className={`fixed left-1/2 -translate-x-1/2 w-[90vw] max-w-sm px-5 py-3 font-display text-base tracking-widest shadow-lg border-2 uppercase text-center z-[9999] ${toast.type === 'success'
-              ? 'bg-retro-green-light border-retro-gold text-retro-white'
-              : 'bg-retro-red border-retro-gold text-retro-white'
+            ? 'bg-retro-green-light border-retro-gold text-retro-white'
+            : 'bg-retro-red border-retro-gold text-retro-white'
             }`}
         >
           {toast.message}
