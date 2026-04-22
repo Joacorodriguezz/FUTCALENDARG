@@ -8,16 +8,27 @@ interface Props {
   onToggle: () => void;
 }
 
-const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function formatFecha(fecha: string): { corta: string; dia: string } {
+function parseART(fecha: string, hora: string): Date {
+  return new Date(`${fecha}T${hora || '00:00'}:00-03:00`);
+}
+
+function formatFecha(fecha: string, hora: string): { corta: string; dia: string } {
   if (!fecha) return { corta: '--/--', dia: '---' };
-  const [y, m, d] = fecha.split('-');
-  const date = new Date(Number(y), Number(m) - 1, Number(d));
-  return {
-    corta: `${d}/${m}`,
-    dia: DIAS[date.getDay()],
-  };
+  const date = parseART(fecha, hora);
+  const dia = new Intl.DateTimeFormat('es', { weekday: 'short', timeZone: userTz })
+    .format(date).replace('.', '').replace(/^\w/, c => c.toUpperCase());
+  const d = new Intl.DateTimeFormat('es', { day: '2-digit', timeZone: userTz }).format(date);
+  const m = new Intl.DateTimeFormat('es', { month: '2-digit', timeZone: userTz }).format(date);
+  return { corta: `${d}/${m}`, dia };
+}
+
+function formatHora(fecha: string, hora: string): string {
+  if (!hora) return '--:--';
+  return new Intl.DateTimeFormat('es', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTz,
+  }).format(parseART(fecha, hora));
 }
 
 function CompBadge({ logo, nombre }: { logo?: string | null; nombre: string }) {
@@ -80,7 +91,7 @@ function TeamLogo({ nombre, logo }: { nombre: string; logo?: string | null }) {
 }
 
 export function MatchCard({ partido, checked, onToggle }: Props) {
-  const { corta, dia } = formatFecha(partido.fecha);
+  const { corta, dia } = formatFecha(partido.fecha, partido.hora);
   const agregable = partidoEsAgregable(partido);
   const jugado = partido.estado === 'FT';
 
@@ -135,7 +146,7 @@ export function MatchCard({ partido, checked, onToggle }: Props) {
 
         <div className="flex flex-col items-center flex-shrink-0 px-1">
           <span className="font-retro text-retro-gray text-xs tracking-wide">
-            {partido.hora || '--:--'}
+            {formatHora(partido.fecha, partido.hora)}
           </span>
           <span className="font-display text-retro-white text-xl tracking-widest leading-tight">
             {corta}
