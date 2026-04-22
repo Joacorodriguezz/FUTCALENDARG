@@ -6,14 +6,19 @@ interface Props {
   onCancel: () => void;
 }
 
-const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function formatFechaLarga(fecha: string, hora: string): string {
   if (!fecha) return '';
-  const [y, m, d] = fecha.split('-');
-  const date = new Date(Number(y), Number(m) - 1, Number(d));
-  const dia = DIAS[date.getDay()];
-  return `${dia} ${d}/${m} · ${hora || '--:--'}`;
+  const date = new Date(`${fecha}T${hora || '00:00'}:00-03:00`);
+  const dia = new Intl.DateTimeFormat('es', { weekday: 'short', timeZone: userTz })
+    .format(date).replace('.', '').replace(/^\w/, c => c.toUpperCase());
+  const d = new Intl.DateTimeFormat('es', { day: '2-digit', timeZone: userTz }).format(date);
+  const m = new Intl.DateTimeFormat('es', { month: '2-digit', timeZone: userTz }).format(date);
+  const h = new Intl.DateTimeFormat('es', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: userTz,
+  }).format(date);
+  return `${dia} ${d}/${m} · ${h}`;
 }
 
 export function ConflictModal({ conflicts, onConfirm, onCancel }: Props) {
